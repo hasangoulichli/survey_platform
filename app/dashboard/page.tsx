@@ -128,7 +128,7 @@ export default function DashboardPage() {
                       </Link>
                       
                       <button 
-                        onClick={() => window.open(`https://survey-api-kyse.onrender.com/export_csv/${survey.id}`, '_blank')}
+                        onClick={() => window.open(`https://survey-api-kyse.onrender.com/export/csv/${survey.id}`, '_blank')}
                         className="flex items-center justify-center gap-2 flex-1 py-2.5 border border-green-200 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg text-sm font-medium transition"
                       >
                         <Download size={18} /> Veriyi İndir
