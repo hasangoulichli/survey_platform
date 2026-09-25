@@ -71,7 +71,6 @@ function BuilderCanvas() {
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Güvenlik Kontrolü Doğru Yerde
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) {
@@ -186,7 +185,18 @@ function BuilderCanvas() {
   );
 }
 
+// YENİ EKLENEN KISIM: Sunucu derlemesini (SSR) atlatmak için kilit (isMounted)
 export default function BuilderPage() {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  if (!isMounted) {
+    return <div className="h-screen flex items-center justify-center bg-gray-50 text-gray-500 font-medium">Tasarımcı yükleniyor...</div>;
+  }
+
   return (
     <ReactFlowProvider>
       <BuilderCanvas />
