@@ -5,6 +5,16 @@ import { supabase } from "../../../src/lib/supabase";
 import { useParams } from "next/navigation";
 import QuestionRenderer from "./components/QuestionRenderer";
 
+// YENİ: FISHER-YATES KARIŞTIRICI
+const shuffleArray = (array: any[]) => {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+};
+
 export default function SurveyEngine() {
   const params = useParams();
   const id = params.id as string;
@@ -81,22 +91,38 @@ export default function SurveyEngine() {
       setAssignedVariations(variationsObj);
 
       // SAYFALANDIRMA (PAGINATION) MANTIĞI
-      const groupedPages: { id: string, elements: any[] }[] = [];
+      // SAYFALANDIRMA VE SORU KARIŞTIRMA MANTIĞI
+      const groupedPages: { id: string, elements: any[], shuffle: boolean }[] = [];
       let currentGroup: any[] = [];
       let currentPageId = 'start_page';
+      let currentShuffleSetting = false;
 
       expandedElements.forEach((el: any) => {
         if (el.type === 'page_break') {
           if (currentGroup.length > 0) {
-            groupedPages.push({ id: currentPageId, elements: [...currentGroup] });
+            // Eğer sayfanın başında shuffle işaretlenmişse, soruları KARIŞTIRARAK kaydet
+            let finalGroup = currentGroup;
+            if (currentShuffleSetting) {
+              finalGroup = shuffleArray(currentGroup);
+            }
+            groupedPages.push({ id: currentPageId, elements: finalGroup, shuffle: currentShuffleSetting });
           }
           currentGroup = [];
-          currentPageId = el.id; // Sonraki sayfanın ID'si bu page_break'in ID'si olacak
+          currentPageId = el.id; 
+          currentShuffleSetting = el.shuffleQuestions || false; // Yeni sayfanın karıştırma ayarını devral
         } else {
           currentGroup.push(el);
         }
       });
-      if (currentGroup.length > 0) groupedPages.push({ id: currentPageId, elements: currentGroup });
+      // Son sayfayı ekle
+      if (currentGroup.length > 0) {
+        let finalGroup = currentGroup;
+        if (currentShuffleSetting) {
+          finalGroup = shuffleArray(currentGroup);
+        }
+        groupedPages.push({ id: currentPageId, elements: finalGroup, shuffle: currentShuffleSetting });
+      }
+
       setPages(groupedPages);
       startTimeRef.current = performance.now();
       setLoading(false);
