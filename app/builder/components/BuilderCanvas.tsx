@@ -5,10 +5,11 @@ import { supabase } from "../../../src/lib/supabase";
 import { 
   Trash2, Plus, ChevronUp, ChevronDown, Copy, 
   Type, AlignLeft, Circle, CheckSquare, ChevronDownSquare, 
-  SlidersHorizontal, Grid, LayoutGrid, Upload, Star, BookOpen, SeparatorHorizontal, MoveHorizontal} from 'lucide-react';
+  SlidersHorizontal, Grid, LayoutGrid, Upload, Star, BookOpen, SeparatorHorizontal, MoveHorizontal, FileText } from 'lucide-react';
 
 // TÜM SORU TİPLERİ
 const QUESTION_TYPES = [
+  { value: 'info_block', label: 'Açıklama / Bilgi Metni', icon: <FileText size={16}/> },
   { value: 'short_text', label: 'Kısa Yanıt', icon: <Type size={16}/> },
   { value: 'paragraph', label: 'Paragraf', icon: <AlignLeft size={16}/> },
   { value: 'multiple_choice', label: 'Çoktan Seçmeli (Tek Yanıt)', icon: <Circle size={16}/> },
@@ -199,11 +200,30 @@ export default function BuilderCanvas() {
                             type="text" 
                             value={el.title} 
                             onChange={(e) => updateElement(el.id, 'title', e.target.value)} 
-                            placeholder={el.type === 'page_break' ? 'Bölüm Başlığı (İsteğe Bağlı)' : 'Soru Metni'} 
+                            placeholder={el.type === 'page_break' ? 'Bölüm Başlığı (İsteğe Bağlı)' : 'Soru veya Başlık Metni'} 
                             className="w-full text-lg font-medium text-gray-900 bg-gray-50 border-b border-gray-400 focus:border-indigo-600 focus:bg-gray-100 outline-none p-3 rounded-t-md transition"
                             autoFocus
                           />
+                          
+                          {/* BİÇİMLENDİRME İPUCU */}
+                          <p className="text-xs text-gray-400 mt-1 pl-1">
+                            💡 İpucu: **kalın**, *italik* veya __altı çizili__ yapmak için işaretleri kullanın.
+                          </p>
+
+                          {/* YENİ: AÇIKLAMA METNİ BLOĞU GİRİŞİ */}
+                          {el.type === 'info_block' && (
+                            <div className="w-full mt-3">
+                              <textarea 
+                                value={el.description || ''} 
+                                onChange={(e) => updateElement(el.id, 'description', e.target.value)} 
+                                placeholder="Uzun açıklama, onam formu veya kapanış metnini buraya yazın..." 
+                                className="w-full text-base text-gray-900 bg-white border border-gray-300 focus:border-indigo-600 outline-none p-3 rounded-md transition"
+                                rows={6}
+                              />
+                            </div>
+                          )}
                         </div>
+                        
                         <select 
                           value={el.type} 
                           onChange={(e) => handleTypeChange(el.id, e.target.value, el)}
@@ -557,6 +577,9 @@ export default function BuilderCanvas() {
         </button>
         <button onClick={() => addElement('page_break')} className="p-3 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition" title="Bölüm (Sayfa) Ekle">
           <SeparatorHorizontal size={24} />
+        </button>
+        <button onClick={() => addElement('info_block')} className="p-3 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition" title="Bilgi / Açıklama Metni Ekle">
+          <FileText size={24} />
         </button>
       </div>
 

@@ -1,18 +1,38 @@
 import React from 'react';
-import { Star, Upload, BookOpen } from 'lucide-react';
+import { Star, Upload, BookOpen, FileText } from 'lucide-react';
+
+// YENİ: WHATSAPP TARZI METİN BİÇİMLENDİRİCİ (BOLD, ITALIC, UNDERLINE)
+const formatText = (text: string) => {
+  if (!text || typeof text !== 'string') return { __html: '' };
+  let html = text
+    .replace(/\n/g, '<br/>') // Alt satıra inmeyi algılar
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // **kalın**
+    .replace(/\*(.*?)\*/g, '<em>$1</em>') // *italik*
+    .replace(/__(.*?)__/g, '<u>$1</u>'); // __altı çizili__
+  return { __html: html };
+};
 
 export default function QuestionRenderer({ el, answer, onChange, assignedVariation }: any) {
   const type = el.type;
 
-  // 1. VİNYET / SENARYO METNİ (Sorun Buradaydı, vignette_text eklendi)
+  // 1. VİNYET METNİ
   if (type === 'vignette' || type === 'vignette_text') {
     return (
       <div className="bg-blue-50 border-l-4 border-blue-500 p-6 rounded-r-xl text-gray-900 leading-relaxed text-justify text-base shadow-sm">
         <div className="flex items-center gap-2 mb-3 text-blue-700 font-bold text-sm">
            <BookOpen size={18} /> Araştırma Senaryosu
         </div>
-        {/* el.text yeni sistemden, assignedVariation eski sistemden gelir */}
-        {el.text || assignedVariation || <span className="text-gray-400 italic">Senaryo metni bulunamadı...</span>}
+        <div dangerouslySetInnerHTML={formatText(el.text || assignedVariation || 'Senaryo metni bulunamadı...')} />
+      </div>
+    );
+  }
+
+  // YENİ: BİLGİ / AÇIKLAMA METNİ (ONAM FORMU / KAPANIŞ)
+  if (type === 'info_block') {
+    return (
+      <div className="flex flex-col gap-4 bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
+        {el.title && <h2 className="text-xl font-bold text-gray-900" dangerouslySetInnerHTML={formatText(el.title)} />}
+        {el.description && <div className="text-gray-700 leading-relaxed text-justify" dangerouslySetInnerHTML={formatText(el.description)} />}
       </div>
     );
   }
@@ -21,14 +41,14 @@ export default function QuestionRenderer({ el, answer, onChange, assignedVariati
     <div className="flex flex-col gap-4">
       {/* SORU BAŞLIĞI */}
       <h3 className="text-lg font-medium text-gray-900 leading-snug">
-        {el.title} {el.required && <span className="text-red-500 font-bold">*</span>}
+        <span dangerouslySetInnerHTML={formatText(el.title)} /> {el.required && <span className="text-red-500 font-bold">*</span>}
       </h3>
 
-      {/* 2. KISA VE UZUN METİN */}
+      {/* 2. KISA VE UZUN METİN YANITLARI */}
       {type === 'short_text' && <input type="text" className="w-full md:w-1/2 border border-gray-300 rounded-md p-3 text-gray-900 focus:ring-2 focus:ring-indigo-600 outline-none" value={answer || ''} onChange={e => onChange(e.target.value)} />}
       {type === 'paragraph' && <textarea className="w-full border border-gray-300 rounded-md p-3 text-gray-900 focus:ring-2 focus:ring-indigo-600 outline-none" rows={4} value={answer || ''} onChange={e => onChange(e.target.value)} />}
 
-      {/* 3. SEÇMELİ SORULAR (Tekli ve Çoklu) */}
+      {/* 3. SEÇMELİ SORULAR */}
       {(type === 'multiple_choice' || type === 'checkboxes') && (
         <div className="flex flex-col gap-3">
           {el.choices?.map((c: string, i: number) => (
@@ -43,7 +63,7 @@ export default function QuestionRenderer({ el, answer, onChange, assignedVariati
                   }
                 }}
               />
-              <span className="text-gray-900 font-medium">{c}</span>
+              <span className="text-gray-900 font-medium" dangerouslySetInnerHTML={formatText(c)} />
             </label>
           ))}
         </div>
@@ -60,7 +80,7 @@ export default function QuestionRenderer({ el, answer, onChange, assignedVariati
       {/* 5. DOĞRUSAL ÖLÇEK (Likert) */}
       {type === 'linear_scale' && (
         <div className="flex flex-col md:flex-row items-center gap-4 justify-between w-full mt-2">
-          <span className="text-gray-700 font-medium text-center md:text-left">{el.scaleConfig?.minLabel}</span>
+          <span className="text-gray-700 font-medium text-center md:text-left" dangerouslySetInnerHTML={formatText(el.scaleConfig?.minLabel)} />
           <div className="flex gap-2 flex-wrap justify-center">
             {Array.from({length: (el.scaleConfig?.max || 5) - (el.scaleConfig?.min || 1) + 1}).map((_, i) => {
               const val = i + (el.scaleConfig?.min || 1);
@@ -72,31 +92,29 @@ export default function QuestionRenderer({ el, answer, onChange, assignedVariati
               );
             })}
           </div>
-          <span className="text-gray-700 font-medium text-center md:text-right">{el.scaleConfig?.maxLabel}</span>
+          <span className="text-gray-700 font-medium text-center md:text-right" dangerouslySetInnerHTML={formatText(el.scaleConfig?.maxLabel)} />
         </div>
       )}
 
-      {/* 5.5 KAYDIRICI (Slider - Bağımsız) */}
+      {/* KAYDIRICI (Slider) */}
       {type === 'slider' && (
         <div className="flex flex-col gap-4 px-2 mt-2 w-full md:w-3/4">
           <div className="flex items-center gap-4">
-            <span className="text-gray-500 font-bold text-sm">{el.sliderConfig?.minLabel || el.sliderConfig?.min || 0}</span>
+            <span className="text-gray-500 font-bold text-sm" dangerouslySetInnerHTML={formatText(el.sliderConfig?.minLabel || el.sliderConfig?.min?.toString() || '0')} />
             <input 
-              type="range" 
-              min={el.sliderConfig?.min || 0} 
-              max={el.sliderConfig?.max || 100} 
+              type="range" min={el.sliderConfig?.min || 0} max={el.sliderConfig?.max || 100} 
               className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
               value={answer !== undefined ? answer : (el.sliderConfig?.min || 0)}
               onChange={(e) => onChange(parseInt(e.target.value))}
             />
-            <span className="text-gray-500 font-bold text-sm">{el.sliderConfig?.maxLabel || el.sliderConfig?.max || 100}</span>
+            <span className="text-gray-500 font-bold text-sm" dangerouslySetInnerHTML={formatText(el.sliderConfig?.maxLabel || el.sliderConfig?.max?.toString() || '100')} />
           </div>
           <div className="text-center font-black text-indigo-600 text-3xl">
             {answer !== undefined ? answer : (el.sliderConfig?.min || 0)}
           </div>
         </div>
       )}
-      
+
       {/* 6. TABLOLAR (Grid) */}
       {(type === 'multiple_choice_grid' || type === 'tickbox_grid') && (
         <div className="overflow-x-auto w-full border border-gray-200 rounded-lg">
@@ -104,15 +122,15 @@ export default function QuestionRenderer({ el, answer, onChange, assignedVariati
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="p-3"></th>
-                {el.gridConfig?.columns?.map((c: string, i: number) => <th key={i} className="p-3 text-center text-sm font-semibold text-gray-700">{c}</th>)}
+                {el.gridConfig?.columns?.map((c: string, i: number) => <th key={i} className="p-3 text-center text-sm font-semibold text-gray-700"><span dangerouslySetInnerHTML={formatText(c)}/></th>)}
               </tr>
             </thead>
             <tbody>
               {el.gridConfig?.rows?.map((r: string, rIndex: number) => (
                 <tr key={rIndex} className="border-b border-gray-100 hover:bg-gray-50 transition">
-                  <td className="p-4 text-sm font-medium text-gray-900 w-1/3">{r}</td>
+                  <td className="p-4 text-sm font-medium text-gray-900 w-1/3"><span dangerouslySetInnerHTML={formatText(r)}/></td>
                   {el.gridConfig?.columns?.map((c: string, cIndex: number) => (
-                    <td key={cIndex} className="p-4 text-center">
+                    <td key={cIndex} className="text-center p-3">
                       <input type={type === 'multiple_choice_grid' ? 'radio' : 'checkbox'} name={`${el.id}_${rIndex}`} className="w-5 h-5 accent-indigo-600 cursor-pointer"
                         checked={type === 'multiple_choice_grid' ? (answer?.[r] === c) : (answer?.[r] || []).includes(c)}
                         onChange={(e) => {
@@ -133,7 +151,7 @@ export default function QuestionRenderer({ el, answer, onChange, assignedVariati
         </div>
       )}
 
-      {/* 7. PUANLAMA (Yıldız) */}
+      {/* 7. PUANLAMA & DOSYA YÜKLEME */}
       {type === 'rating' && (
         <div className="flex gap-2 justify-center md:justify-start">
           {Array.from({length: el.ratingConfig?.max || 5}).map((_, i) => (
@@ -141,8 +159,6 @@ export default function QuestionRenderer({ el, answer, onChange, assignedVariati
           ))}
         </div>
       )}
-
-      {/* 8. DOSYA YÜKLEME */}
       {type === 'file_upload' && (
         <label className="border-2 border-dashed border-gray-300 rounded-xl p-8 flex flex-col items-center gap-3 cursor-pointer hover:bg-indigo-50 hover:border-indigo-400 transition bg-white w-full md:w-1/2">
           <Upload size={32} className="text-indigo-500"/>
