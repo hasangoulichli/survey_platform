@@ -316,6 +316,7 @@ const downloadCSV = async (surveyId: string) => {
                       </Link>
                       
                       <button onClick={() => downloadCSV(survey.id)} className="flex items-center justify-center gap-2 flex-1 py-2.5 border border-green-200 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg text-sm font-medium transition">
+                        <Download size={18} /> CSV
                       </button>
                     </div>
                   </div>
