@@ -8,28 +8,64 @@ import SettingsPanel from './SettingsPanel';
 const initialNodes: Node[] = [
   { id: 'start_node', type: 'input', position: { x: 250, y: 50 }, data: { label: 'Başlangıç' }, style: { backgroundColor: '#e0e7ff', border: '2px solid #4f46e5', borderRadius: '8px', fontWeight: 'bold' } }
 ];
-let id = 1;
-const getId = () => `soru_${id++}`;
+
+let idCounter = 1;
+const getId = () => `soru_${idCounter++}`;
 
 type BuilderCanvasProps = {
   editId?: string;
 };
 
-function BuilderCanvas({ editId }: BuilderCanvasProps) {
+export default function BuilderCanvas({ editId }: BuilderCanvasProps) {
   const router = useRouter();
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [nodes, setNodes] = useState<Node[]>(initialNodes);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [surveyTitle, setSurveyTitle] = useState(`Araştırma Anketi - ${new Date().toLocaleDateString('tr-TR')}`);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
 
+  // 1. GİRİŞ KONTROLÜ VE DÜZENLEME (EDIT) VERİSİNİ ÇEKME
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) router.push("/login");
+      if (!session) {
+        router.push("/login");
+      } else if (editId) {
+        loadSurveyForEditing(editId);
+      }
     });
-  }, [router]);
+  }, [router, editId]);
+
+  // 2. DÜZENLEME İÇİN VERİLERİ (RAW NODES) GERİ YÜKLEME
+  const loadSurveyForEditing = async (surveyId: string) => {
+    setIsLoading(true);
+    const { data, error } = await supabase.from('surveys').select('*').eq('id', surveyId).single();
+    
+    if (error || !data) {
+      alert("Anket yüklenemedi!");
+      setIsLoading(false);
+      return;
+    }
+
+    setSurveyTitle(data.title);
+    
+    // Geçmişte kendi bulduğunuz harika fikir: raw_nodes'u ekrana basıyoruz
+    if (data.survey_payload && data.survey_payload.raw_nodes && data.survey_payload.raw_edges) {
+      idCounter = data.survey_payload.raw_nodes.length + 1;
+      setNodes(data.survey_payload.raw_nodes);
+      setEdges(data.survey_payload.raw_edges);
+    } else {
+      alert("Bu anket eski sistemle kaydedilmiş, kutular yüklenemiyor.");
+    }
+
+    setTimeout(() => {
+        if(reactFlowInstance) reactFlowInstance.fitView();
+    }, 100);
+
+    setIsLoading(false);
+  };
 
   const onNodesChange = useCallback((changes: NodeChange[]) => setNodes((nds) => applyNodeChanges(changes, nds)), []);
   const onEdgesChange = useCallback((changes: EdgeChange[]) => setEdges((eds) => applyEdgeChanges(changes, eds)), []);
@@ -38,12 +74,12 @@ function BuilderCanvas({ editId }: BuilderCanvasProps) {
   const onDrop = useCallback((event: React.DragEvent) => {
     event.preventDefault();
     const type = event.dataTransfer.getData('application/reactflow');
-    const defaultLabel = event.dataTransfer.getData('application/label'); // Sürüklenen öğenin asıl adı
+    const defaultLabel = event.dataTransfer.getData('application/label');
     if (!type || !reactFlowInstance) return;
 
     const position = reactFlowInstance.screenToFlowPosition({ x: event.clientX, y: event.clientY });
     
-    // YENİ: Seçenekleri boş stringler olarak başlat (Sıfır Değerler)
+    // SEÇENEKLERİ BOŞ BAŞLAT
     const initialChoices = (type === 'checkbox' || type === 'radio') ? ["", ""] : [];
     const initialVariations = type === 'vignette' ? [""] : undefined;
 
@@ -52,12 +88,12 @@ function BuilderCanvas({ editId }: BuilderCanvasProps) {
       type: 'default',
       position,
       data: { 
-        label: "", // YENİ: Varsayılan metni kaldırıyoruz, kutu boş gelecek
+        label: "", // Kutular boş gelir
         questionType: type, 
         required: false, 
         choices: initialChoices,
         variations: initialVariations,
-        blockTitle: defaultLabel // YENİ: İleride düzenleme ekranında "Bu ne kutusuydu?" demek için başlık ekliyoruz
+        blockTitle: defaultLabel 
       },
       style: { backgroundColor: '#ffffff', border: '1px solid #d1d5db', borderRadius: '8px', minWidth: '150px', padding: '10px' }
     };
@@ -86,6 +122,7 @@ function BuilderCanvas({ editId }: BuilderCanvasProps) {
     }));
   };
 
+  // 3. DOĞRU KAYDETME FONKSİYONU (UPDATE/INSERT & RAW_NODES)
   const saveSurveyToDatabase = async (publish: boolean) => {
     setIsSaving(true);
     const elements = [];
@@ -108,20 +145,49 @@ function BuilderCanvas({ editId }: BuilderCanvasProps) {
       currentNodeId = nextNode.id;
     }
 
-    try {
-      const { error } = await supabase.from('surveys').insert({
-        title: surveyTitle,
-        elements,
-        is_published: publish,
-      });
+    // JSON PAKETİ (Supabase'deki survey_payload sütununa gidecek)
+    const finalJSON = { 
+      title: surveyTitle, 
+      elements: elements,
+      raw_nodes: nodes,   // Düzenleme ekranı için
+      raw_edges: edges    // Düzenleme ekranı için
+    };
 
-      if (error) throw error;
-    } catch (error) {
+    try {
+      let responseError = null;
+
+      if (editId) {
+        // GÜNCELLEME (UPDATE)
+        const { error } = await supabase.from('surveys').update({
+          title: surveyTitle,
+          survey_payload: finalJSON,
+          is_active: publish
+        }).eq('id', editId);
+        responseError = error;
+      } else {
+        // YENİ KAYIT (INSERT)
+        const { error } = await supabase.from('surveys').insert([{
+          title: surveyTitle,
+          survey_payload: finalJSON,
+          is_active: publish
+        }]);
+        responseError = error;
+      }
+
+      if (responseError) throw responseError;
+      
+      alert(editId ? `Başarılı! Anketiniz güncellendi ve ${publish ? 'yayınlandı' : 'taslak olarak kaydedildi'}.` : `Başarılı! Anket oluşturuldu ve ${publish ? 'yayınlandı' : 'taslak olarak kaydedildi'}.`);
+      router.push('/dashboard');
+      
+    } catch (error: any) {
       console.error('Anket kaydedilemedi:', error);
+      alert("Hata: " + error.message);
     } finally {
       setIsSaving(false);
     }
   };
+
+  if (isLoading) return <div className="h-screen flex items-center justify-center bg-gray-50 text-gray-500 font-medium">Anket verileri yükleniyor...</div>;
 
   return (
     <div className="flex flex-row h-screen bg-gray-50 w-full overflow-hidden">
@@ -135,7 +201,6 @@ function BuilderCanvas({ editId }: BuilderCanvasProps) {
               className="text-xl font-bold text-gray-800 bg-transparent border-b-2 border-transparent hover:border-gray-300 focus:border-indigo-500 focus:outline-none px-2 py-1 transition-colors w-1/2"
               placeholder="Araştırma Başlığını Giriniz..."
             />
-            {/* YENİ: İKİLİ BUTON YAPISI */}
             <div className="flex gap-3">
                 <button 
                     onClick={() => saveSurveyToDatabase(false)} 
