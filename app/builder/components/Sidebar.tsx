@@ -1,5 +1,5 @@
 import React from 'react';
-import { Type, Star, CheckSquare, SlidersHorizontal, AlignLeft } from 'lucide-react';
+import { Type, Star, CheckSquare, SlidersHorizontal, AlignLeft, SeparatorHorizontal } from 'lucide-react'; // SeparatorHorizontal EKLENDİ
 
 export default function Sidebar() {
   const onDragStart = (event: React.DragEvent, nodeType: string, label: string) => {
@@ -27,7 +27,7 @@ export default function Sidebar() {
         <span className="text-sm font-medium text-gray-700">Çoklu Seçim</span>
       </div>
 
-    {/* YENİ: Slider Aracı */}
+      {/* YENİ: Slider Aracı */}
       <div className="flex items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded cursor-grab hover:bg-gray-100"
            onDragStart={(event) => onDragStart(event, 'slider', 'Kaydırıcı (0-100)')} draggable>
         <SlidersHorizontal size={18} className="text-indigo-600" />
@@ -39,6 +39,13 @@ export default function Sidebar() {
            onDragStart={(event) => onDragStart(event, 'vignette', 'Metin Bloğu / Vinyet')} draggable>
         <AlignLeft size={18} className="text-indigo-600" />
         <span className="text-sm font-medium text-gray-700">Metin Bloğu</span>
+      </div>
+
+      {/* YENİ: Sayfa Sonu Aracı */}
+      <div className="flex items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded cursor-grab hover:bg-gray-100"
+           onDragStart={(event) => onDragStart(event, 'page_break', 'Sayfa Sonu (İleri)')} draggable>
+        <SeparatorHorizontal size={18} className="text-indigo-600" />
+        <span className="text-sm font-medium text-gray-700">Sayfa Sonu (İleri)</span>
       </div>
     </div>
   );
