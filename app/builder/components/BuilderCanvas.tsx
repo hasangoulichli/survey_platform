@@ -5,8 +5,7 @@ import { supabase } from "../../../src/lib/supabase";
 import { 
   Trash2, Plus, ChevronUp, ChevronDown, Copy, 
   Type, AlignLeft, Circle, CheckSquare, ChevronDownSquare, 
-  SlidersHorizontal, Grid, LayoutGrid, Upload, Star, BookOpen, SeparatorHorizontal
-} from 'lucide-react';
+  SlidersHorizontal, Grid, LayoutGrid, Upload, Star, BookOpen, SeparatorHorizontal, MoveHorizontal} from 'lucide-react';
 
 // TÜM SORU TİPLERİ
 const QUESTION_TYPES = [
@@ -21,6 +20,7 @@ const QUESTION_TYPES = [
   { value: 'file_upload', label: 'Dosya Yükleme', icon: <Upload size={16}/> },
   { value: 'rating', label: 'Puanlama (Yıldız)', icon: <Star size={16}/> },
   { value: 'vignette', label: 'Vinyet / Senaryo Bloğu', icon: <BookOpen size={16}/> },
+  { value: 'slider', label: 'Kaydırıcı (Slider)', icon: <MoveHorizontal size={16}/> },
   { value: 'page_break', label: 'Bölüm Sonu (Yeni Sayfa)', icon: <SeparatorHorizontal size={16}/> },
 ];
 
@@ -58,6 +58,7 @@ export default function BuilderCanvas() {
   // Yeni eleman oluştururken tipi için gerekli varsayılan verileri sağlar
   const getDefaultDataForType = (type: string) => {
     return {
+      sliderConfig: { min: 0, max: 100, minLabel: 'En Düşük', maxLabel: 'En Yüksek' },
       choices: ['Seçenek 1'],
       scaleConfig: { min: 1, max: 5, minLabel: '', maxLabel: '' },
       gridConfig: { rows: ['Satır 1'], columns: ['Sütun 1'] },
@@ -93,6 +94,7 @@ export default function BuilderCanvas() {
     if (newType === 'linear_scale' && !el.scaleConfig) updates.scaleConfig = defaults.scaleConfig;
     if (newType === 'rating' && !el.ratingConfig) updates.ratingConfig = defaults.ratingConfig;
     if (newType === 'vignette' && !el.variations) updates.variations = defaults.variations;
+    if (newType === 'slider' && !el.sliderConfig) updates.sliderConfig = defaults.sliderConfig;
     
     setElements(elements.map(e => e.id === id ? { ...e, ...updates } : e));
   };
@@ -260,7 +262,7 @@ export default function BuilderCanvas() {
                             </select>
                             <span className="text-gray-600 font-medium">ile</span>
                             <select value={el.scaleConfig?.max || 5} onChange={(e) => updateElement(el.id, 'scaleConfig', {...el.scaleConfig, max: parseInt(e.target.value)})} className="border p-2 rounded text-gray-900">
-                              {[2,3,4,5,6,7,8,9,10,100].map(n => <option key={n} value={n}>{n}</option>)}
+                              {[2,3,4,5,6,7,8,9,10].map(n => <option key={n} value={n}>{n}</option>)}
                             </select>
                             <span className="text-gray-600 font-medium">Arası</span>
                           </div>
@@ -272,6 +274,28 @@ export default function BuilderCanvas() {
                             <div className="flex items-center gap-3">
                               <span className="w-6 text-center font-bold text-gray-500">{el.scaleConfig?.max || 5}</span>
                               <input type="text" placeholder="Üst Sınır Etiketi (Örn: Tamamen Katılıyorum)" value={el.scaleConfig?.maxLabel || ''} onChange={(e) => updateElement(el.id, 'scaleConfig', {...el.scaleConfig, maxLabel: e.target.value})} className="flex-1 border-b border-gray-300 focus:border-indigo-600 outline-none py-1 bg-transparent text-gray-900"/>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* KAYDIRICI (Slider) AYARLARI */}
+                      {el.type === 'slider' && (
+                        <div className="flex flex-col gap-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                          <div className="flex items-center gap-4">
+                            <span className="text-sm font-bold text-gray-700">Aralık:</span>
+                            <input type="number" value={el.sliderConfig?.min || 0} onChange={(e) => updateElement(el.id, 'sliderConfig', {...el.sliderConfig, min: parseInt(e.target.value)})} className="border p-2 rounded w-20 text-gray-900" placeholder="Min" />
+                            <span className="text-gray-500 font-medium">-</span>
+                            <input type="number" value={el.sliderConfig?.max || 100} onChange={(e) => updateElement(el.id, 'sliderConfig', {...el.sliderConfig, max: parseInt(e.target.value)})} className="border p-2 rounded w-20 text-gray-900" placeholder="Max" />
+                          </div>
+                          <div className="flex flex-col gap-3">
+                            <div className="flex items-center gap-3">
+                              <span className="w-20 text-xs font-bold text-gray-500 uppercase">Alt Etiket</span>
+                              <input type="text" placeholder="Örn: Hiç" value={el.sliderConfig?.minLabel || ''} onChange={(e) => updateElement(el.id, 'sliderConfig', {...el.sliderConfig, minLabel: e.target.value})} className="flex-1 border-b border-gray-300 focus:border-indigo-600 outline-none py-1 bg-transparent text-gray-900"/>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className="w-20 text-xs font-bold text-gray-500 uppercase">Üst Etiket</span>
+                              <input type="text" placeholder="Örn: Çok" value={el.sliderConfig?.maxLabel || ''} onChange={(e) => updateElement(el.id, 'sliderConfig', {...el.sliderConfig, maxLabel: e.target.value})} className="flex-1 border-b border-gray-300 focus:border-indigo-600 outline-none py-1 bg-transparent text-gray-900"/>
                             </div>
                           </div>
                         </div>
@@ -416,6 +440,15 @@ export default function BuilderCanvas() {
                             ))}
                           </div>
                           <span>{el.scaleConfig?.maxLabel}</span>
+                        </div>
+                      )}
+                      
+                      {/* KAYDIRICI ÖNİZLEME */}
+                      {el.type === 'slider' && (
+                        <div className="flex items-center gap-4 w-full md:w-3/4">
+                          <span className="text-gray-500 text-sm font-bold">{el.sliderConfig?.minLabel || el.sliderConfig?.min}</span>
+                          <input type="range" disabled min={el.sliderConfig?.min || 0} max={el.sliderConfig?.max || 100} className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none" />
+                          <span className="text-gray-500 text-sm font-bold">{el.sliderConfig?.maxLabel || el.sliderConfig?.max}</span>
                         </div>
                       )}
 

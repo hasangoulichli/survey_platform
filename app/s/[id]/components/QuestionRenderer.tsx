@@ -76,6 +76,27 @@ export default function QuestionRenderer({ el, answer, onChange, assignedVariati
         </div>
       )}
 
+      {/* 5.5 KAYDIRICI (Slider - Bağımsız) */}
+      {type === 'slider' && (
+        <div className="flex flex-col gap-4 px-2 mt-2 w-full md:w-3/4">
+          <div className="flex items-center gap-4">
+            <span className="text-gray-500 font-bold text-sm">{el.sliderConfig?.minLabel || el.sliderConfig?.min || 0}</span>
+            <input 
+              type="range" 
+              min={el.sliderConfig?.min || 0} 
+              max={el.sliderConfig?.max || 100} 
+              className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+              value={answer !== undefined ? answer : (el.sliderConfig?.min || 0)}
+              onChange={(e) => onChange(parseInt(e.target.value))}
+            />
+            <span className="text-gray-500 font-bold text-sm">{el.sliderConfig?.maxLabel || el.sliderConfig?.max || 100}</span>
+          </div>
+          <div className="text-center font-black text-indigo-600 text-3xl">
+            {answer !== undefined ? answer : (el.sliderConfig?.min || 0)}
+          </div>
+        </div>
+      )}
+      
       {/* 6. TABLOLAR (Grid) */}
       {(type === 'multiple_choice_grid' || type === 'tickbox_grid') && (
         <div className="overflow-x-auto w-full border border-gray-200 rounded-lg">
