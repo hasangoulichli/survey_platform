@@ -45,11 +45,12 @@ export default function SettingsPanel({ selectedNode, updateNodeData, closePanel
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">Soru Metni</label>
             <textarea 
-              className="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-              rows={3}
-              value={selectedNode.data.label}
-              onChange={(e) => updateNodeData('label', e.target.value)}
-            />
+  className="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+  rows={3}
+  value={selectedNode.data.label || ''}
+  onChange={(e) => updateNodeData('label', e.target.value)}
+  placeholder="Lütfen katılımcıya yönelteceğiniz soruyu/açıklamayı buraya yazınız..."
+/>
           </div>
         )}
 
@@ -94,15 +95,15 @@ export default function SettingsPanel({ selectedNode, updateNodeData, closePanel
 
         {/* ZORUNLU SORU (Vinyet değilse göster) */}
         {!isVignette && (
-          <div className="flex items-center justify-between bg-gray-50 p-3 rounded-md border border-gray-100">
+          <label className="flex items-center justify-between bg-gray-50 p-3 rounded-md border border-gray-100">
             <span className="text-sm font-medium text-gray-700">Zorunlu Soru</span>
-            <input 
-              type="checkbox" 
-              className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
-              checked={selectedNode.data.required || false}
+            <input
+              type="checkbox"
+              checked={Boolean(selectedNode.data.required)}
               onChange={(e) => updateNodeData('required', e.target.checked)}
+              className="h-4 w-4 accent-indigo-600"
             />
-          </div>
+          </label>
         )}
 
         {/* ÇOKTAN SEÇMELİ ŞIKLAR */}
