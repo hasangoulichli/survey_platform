@@ -75,7 +75,7 @@ export default function QuestionRenderer({ el, answer, onChange, assignedVariati
       {/* 6. TABLOLAR (Grid) */}
       {(type === 'multiple_choice_grid' || type === 'tickbox_grid') && (
         <div className="overflow-x-auto w-full border border-gray-200 rounded-lg">
-          <table className="w-full text-left border-collapse min-w-[600px] bg-white">
+          <table className="w-full text-left border-collapse min-w-150px bg-white">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="p-3"></th>

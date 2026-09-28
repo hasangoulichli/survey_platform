@@ -1,3 +1,4 @@
+import VignetteEditor from './VignetteEditor';
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../../../src/lib/supabase";
@@ -60,7 +61,7 @@ export default function BuilderCanvas() {
       choices: ['Seçenek 1'],
       scaleConfig: { min: 1, max: 5, minLabel: '', maxLabel: '' },
       gridConfig: { rows: ['Satır 1'], columns: ['Sütun 1'] },
-      variations: [''],
+      variations: [{ id: crypto.randomUUID(), text: '', questions: [] }],
       ratingConfig: { max: 5 }
     };
   };
@@ -344,26 +345,10 @@ export default function BuilderCanvas() {
                         </div>
                       )}
 
-                      {/* 7. VİNYET / SENARYO */}
-                      {el.type === 'vignette' && (
-                        <div className="flex flex-col gap-3 bg-blue-50 p-5 rounded-lg border border-blue-200 shadow-inner">
-                          <p className="text-sm font-bold text-blue-800 flex items-center gap-2 mb-2"><BookOpen size={18}/> Rastgele Senaryo Yöneticisi</p>
-                          {el.variations?.map((v: string, vIndex: number) => (
-                            <div key={vIndex} className="flex flex-col gap-1 bg-white p-3 rounded border border-blue-100">
-                              <div className="flex justify-between items-center mb-1">
-                                <span className="text-xs font-bold text-gray-500">Varyasyon {vIndex + 1}</span>
-                                {el.variations.length > 1 && <button onClick={() => updateElement(el.id, 'variations', el.variations.filter((_:any, i:number) => i !== vIndex))} className="text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 size={14}/></button>}
-                              </div>
-                              <textarea value={v} onChange={(e) => {
-                                const newVars = [...el.variations];
-                                newVars[vIndex] = e.target.value;
-                                updateElement(el.id, 'variations', newVars);
-                              }} className="w-full border border-gray-200 rounded p-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 text-gray-900" rows={3} placeholder="Senaryo metnini buraya yazın..."/>
-                            </div>
-                          ))}
-                          <button onClick={() => updateElement(el.id, 'variations', [...el.variations, ''])} className="text-blue-700 bg-blue-100 hover:bg-blue-200 py-2 rounded-md text-sm font-bold mt-2 transition">Yeni Varyasyon Ekle</button>
-                        </div>
-                      )}
+                      {/* 7. VİNYET / SENARYO (Artık kendi ayrı dosyasında yönetiliyor) */}
+{el.type === 'vignette' && (
+  <VignetteEditor el={el} updateElement={updateElement} />
+)}
 
                       {/* ALT ÇUBUK: ZORUNLULUK, KOPYALA, SİL */}
                       <div className="flex justify-end items-center gap-4 mt-6 pt-4 border-t border-gray-200">
@@ -434,20 +419,23 @@ export default function BuilderCanvas() {
                         </div>
                       )}
 
+                      {/* 4. TABLOLAR (Multiple Choice Grid & Tickbox Grid) */}
                       {['multiple_choice_grid', 'tickbox_grid'].includes(el.type) && (
                         <div className="overflow-x-auto">
                           <table className="w-full text-left border-collapse">
                             <thead>
                               <tr>
                                 <th></th>
-                                {el.gridConfig?.columns?.map((c:string, i:number) => <th key={i} className="font-medium text-gray-700 text-center p-2 min-w-[80px]">{c}</th>)}
+                                {/* Tailwind düzeltmesi: min-w-[80px] yerine min-w-20 kullanıldı */}
+                                {el.gridConfig?.columns?.map((c:string, i:number) => <th key={i} className="font-medium text-gray-700 text-center p-2 min-w-20">{c}</th>)}
                               </tr>
                             </thead>
                             <tbody>
                               {el.gridConfig?.rows?.map((r:string, rIndex:number) => (
                                 <tr key={rIndex} className="border-t border-gray-100 hover:bg-gray-50">
                                   <td className="p-3 font-medium text-gray-800">{r}</td>
-                                  {el.gridConfig?.columns?.map((_, cIndex) => (
+                                  {/* TypeScript düzeltmesi: _ ve cIndex için any tipi eklendi */}
+                                  {el.gridConfig?.columns?.map((_: any, cIndex: any) => (
                                     <td key={cIndex} className="text-center p-3">
                                       {el.type === 'multiple_choice_grid' ? <Circle size={18} className="inline text-gray-300"/> : <CheckSquare size={18} className="inline text-gray-300"/>}
                                     </td>

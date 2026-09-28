@@ -35,20 +35,56 @@ export default function SurveyEngine() {
       
       setSurvey(data);
       
-      // VİNYET RANDOMİZASYONU
+      // VİNYET RASTGELE SEÇİMİ VE ZEKİ GENİŞLETİLMESİ (EXPANSION)
+      const expandedElements: any[] = [];
       const variationsObj: Record<string, string> = {};
+
       data.survey_payload.elements.forEach((el: any) => {
-        if (el.type === 'vignette' && el.variations?.length > 0) {
-          variationsObj[el.id] = el.variations[Math.floor(Math.random() * el.variations.length)];
+        if (el.type === 'vignette') {
+          const vars = el.variations || [];
+          if (vars.length > 0) {
+            const randomIndex = Math.floor(Math.random() * vars.length);
+            const selectedVar = vars[randomIndex];
+            
+            // Eski/Yeni veri tipi kontrolü
+            const isLegacy = typeof selectedVar === 'string';
+            const varText = isLegacy ? selectedVar : selectedVar.text;
+            const varQuestions = isLegacy ? [] : (selectedVar.questions || []);
+
+            variationsObj[el.id] = varText;
+
+            // 1. Senaryo Metnini Kendi Başına Ekle
+            expandedElements.push({ id: el.id, type: 'vignette_text', text: varText });
+
+            // 2. Eğer bu senaryoya özel sorular eklenmişse:
+            if (varQuestions.length > 0) {
+              // Araya görünmez bir Sayfa Sonu at
+              expandedElements.push({ id: `pb_auto_${el.id}`, type: 'page_break' });
+              
+              // Soruları sanki normal çoktan seçmeli sorularymış gibi sisteme yedir
+              varQuestions.forEach((q: any) => {
+                expandedElements.push({
+                  id: `${el.id}_vq_${q.id}`, // Benzersiz ID
+                  type: 'multiple_choice',
+                  title: q.title,
+                  choices: q.choices,
+                  required: true // Manipülasyon kontrolleri araştırmalarda zorunludur
+                });
+              });
+            }
+          }
+        } else {
+          expandedElements.push(el);
         }
       });
+
       setAssignedVariations(variationsObj);
 
-      // SAYFALANDIRMA (Page Break ayrımı)
+      // SAYFALANDIRMA (PAGINATION) MANTIĞINI ARTIK expandedElements ÜZERİNDEN YAPIYORUZ
       const groupedPages: any[][] = [];
       let currentGroup: any[] = [];
 
-      data.survey_payload.elements.forEach((el: any) => {
+      expandedElements.forEach((el: any) => {
         if (el.type === 'page_break') {
           if (currentGroup.length > 0) groupedPages.push([...currentGroup]);
           currentGroup = [];
