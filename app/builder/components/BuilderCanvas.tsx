@@ -11,7 +11,11 @@ const initialNodes: Node[] = [
 let id = 1;
 const getId = () => `soru_${id++}`;
 
-export default function BuilderCanvas() {
+type BuilderCanvasProps = {
+  editId?: string;
+};
+
+function BuilderCanvas({ editId }: BuilderCanvasProps) {
   const router = useRouter();
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [nodes, setNodes] = useState<Node[]>(initialNodes);
@@ -34,27 +38,26 @@ export default function BuilderCanvas() {
   const onDrop = useCallback((event: React.DragEvent) => {
     event.preventDefault();
     const type = event.dataTransfer.getData('application/reactflow');
-    const label = event.dataTransfer.getData('application/label');
+    const defaultLabel = event.dataTransfer.getData('application/label'); // Sürüklenen öğenin asıl adı
     if (!type || !reactFlowInstance) return;
 
     const position = reactFlowInstance.screenToFlowPosition({ x: event.clientX, y: event.clientY });
     
-    // VAR OLAN ÖZELLİK: Çoklu seçimse varsayılan 2 seçenek ile oluştur
-    const initialChoices = (type === 'checkbox' || type === 'radio') ? ["Seçenek 1", "Seçenek 2"] : [];
-    
-    // YENİ ÖZELLİK: Vinyet ise (senaryo) varyasyon dizisini başlat
-    const initialVariations = type === 'vignette' ? [label] : undefined;
+    // YENİ: Seçenekleri boş stringler olarak başlat (Sıfır Değerler)
+    const initialChoices = (type === 'checkbox' || type === 'radio') ? ["", ""] : [];
+    const initialVariations = type === 'vignette' ? [""] : undefined;
 
     const newNode: Node = {
       id: getId(),
       type: 'default',
       position,
       data: { 
-        label, 
+        label: "", // YENİ: Varsayılan metni kaldırıyoruz, kutu boş gelecek
         questionType: type, 
         required: false, 
         choices: initialChoices,
-        variations: initialVariations // Yeni özellik dataya eklendi
+        variations: initialVariations,
+        blockTitle: defaultLabel // YENİ: İleride düzenleme ekranında "Bu ne kutusuydu?" demek için başlık ekliyoruz
       },
       style: { backgroundColor: '#ffffff', border: '1px solid #d1d5db', borderRadius: '8px', minWidth: '150px', padding: '10px' }
     };
@@ -83,14 +86,14 @@ export default function BuilderCanvas() {
     }));
   };
 
-  const saveSurveyToDatabase = async () => {
+  const saveSurveyToDatabase = async (publish: boolean) => {
     setIsSaving(true);
     const elements = [];
     let currentNodeId = 'start_node';
 
     while (currentNodeId) {
       const outgoingEdge = edges.find(e => e.source === currentNodeId);
-      if (!outgoingEdge) break; 
+      if (!outgoingEdge) break;
       const nextNode = nodes.find(n => n.id === outgoingEdge.target);
       if (!nextNode) break;
 
@@ -100,18 +103,24 @@ export default function BuilderCanvas() {
         title: nextNode.data.label,
         required: nextNode.data.required,
         choices: nextNode.data.choices,
-        // YENİ: Vinyet varyasyonlarını veritabanına gönder
-        variations: nextNode.data.variations 
+        variations: nextNode.data.variations,
       });
-      currentNodeId = nextNode.id; 
+      currentNodeId = nextNode.id;
     }
 
-    const finalJSON = { title: surveyTitle, elements: elements };
-    const { error } = await supabase.from('surveys').insert([{ title: surveyTitle, survey_payload: finalJSON }]);
-    setIsSaving(false);
-    
-    if (error) alert("Hata: " + error.message);
-    else alert("Başarılı! Anket Supabase veritabanına kaydedildi.");
+    try {
+      const { error } = await supabase.from('surveys').insert({
+        title: surveyTitle,
+        elements,
+        is_published: publish,
+      });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Anket kaydedilemedi:', error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -120,14 +129,29 @@ export default function BuilderCanvas() {
       <div className="flex-1 h-full flex flex-col relative" ref={reactFlowWrapper}>
          <div className="h-16 bg-white border-b border-gray-200 flex items-center px-6 justify-between shadow-sm z-10 w-full">
             <input 
-  type="text" 
-  value={surveyTitle}
-  onChange={(e) => setSurveyTitle(e.target.value)}
-  className="text-xl font-bold text-gray-800 bg-transparent border-b-2 border-transparent hover:border-gray-300 focus:border-indigo-500 focus:outline-none px-2 py-1 transition-colors w-1/2"
-/>
-            <button onClick={saveSurveyToDatabase} disabled={isSaving} className={`px-4 py-2 text-white rounded-md font-medium transition ${isSaving ? 'bg-indigo-400' : 'bg-indigo-600 hover:bg-indigo-700'}`}>
-              {isSaving ? 'Kaydediliyor...' : 'Yayınla'}
-            </button>
+              type="text" 
+              value={surveyTitle}
+              onChange={(e) => setSurveyTitle(e.target.value)}
+              className="text-xl font-bold text-gray-800 bg-transparent border-b-2 border-transparent hover:border-gray-300 focus:border-indigo-500 focus:outline-none px-2 py-1 transition-colors w-1/2"
+              placeholder="Araştırma Başlığını Giriniz..."
+            />
+            {/* YENİ: İKİLİ BUTON YAPISI */}
+            <div className="flex gap-3">
+                <button 
+                    onClick={() => saveSurveyToDatabase(false)} 
+                    disabled={isSaving} 
+                    className={`px-4 py-2 border border-gray-300 text-gray-700 rounded-md font-medium transition hover:bg-gray-50 disabled:opacity-50`}
+                >
+                    Taslağı Kaydet
+                </button>
+                <button 
+                    onClick={() => saveSurveyToDatabase(true)} 
+                    disabled={isSaving} 
+                    className={`px-4 py-2 text-white rounded-md font-medium transition ${isSaving ? 'bg-indigo-400' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+                >
+                    {editId ? 'Güncelle ve Yayınla' : 'Yayınla'}
+                </button>
+            </div>
           </div>
         <ReactFlow
           nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect}

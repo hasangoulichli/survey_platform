@@ -16,12 +16,12 @@ export default function SurveyEngine() {
   const [assignedVariations, setAssignedVariations] = useState<Record<string, string>>({});
   const [reactionTimes, setReactionTimes] = useState<Record<string, number>>({});
   
-  // YENİ: Sayfalandırma State'i
   const [currentPage, setCurrentPage] = useState(0);
   const [pages, setPages] = useState<any[][]>([]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [validationError, setValidationError] = useState(""); // YENİ: Hata mesajı için state
 
   const startTimeRef = useRef<number>(0);
 
@@ -43,7 +43,6 @@ export default function SurveyEngine() {
 
       setSurvey(data);
       
-      // RANDOMİZASYON
       const variationsObj: Record<string, string> = {};
       data.survey_payload.elements.forEach((el: any) => {
         if (el.type === 'vignette' && el.variations && el.variations.length > 0) {
@@ -53,14 +52,11 @@ export default function SurveyEngine() {
       });
       setAssignedVariations(variationsObj);
 
-      // SAYFALANDIRMA (PAGINATION) MANTIĞI:
-      // Gelen elemanları 'page_break' bloklarından bölerek sayfalar (gruplar) oluşturuyoruz.
       const groupedPages: any[][] = [];
       let currentPageElements: any[] = [];
 
       data.survey_payload.elements.forEach((el: any) => {
         if (el.type === 'page_break') {
-          // Sayfa sonu gördüğünde, şu anki birikenleri listeye at ve yeni sayfa başlat
           if (currentPageElements.length > 0) {
             groupedPages.push([...currentPageElements]);
             currentPageElements = [];
@@ -69,7 +65,6 @@ export default function SurveyEngine() {
           currentPageElements.push(el);
         }
       });
-      // Sonda kalanları da son sayfa olarak ekle
       if (currentPageElements.length > 0) {
         groupedPages.push(currentPageElements);
       }
@@ -88,18 +83,52 @@ export default function SurveyEngine() {
     
     setAnswers(prev => ({ ...prev, [questionId]: value }));
     setReactionTimes(prev => ({ ...prev, [questionId]: rt_ms }));
+    setValidationError(""); // Kullanıcı bir cevap verdiğinde hata mesajını temizle
+  };
+
+  // YENİ: Mevcut sayfadaki zorunlu soruların cevaplanıp cevaplanmadığını kontrol eder
+  const validateCurrentPage = () => {
+    const currentElements = pages[currentPage] || [];
+    for (const el of currentElements) {
+      if (el.required) {
+        const answer = answers[el.name];
+        // Soru tipine göre boşluk kontrolü (Metin için boş string, Checkbox için boş array)
+        const isUnanswered = 
+            answer === undefined || 
+            answer === null || 
+            (typeof answer === 'string' && answer.trim() === '') || 
+            (Array.isArray(answer) && answer.length === 0);
+
+        if (isUnanswered) {
+          return false; // Cevaplanmamış zorunlu soru var
+        }
+      }
+    }
+    return true; // Tüm zorunlu sorular cevaplanmış
   };
 
   const handleNextPage = () => {
-    // Burada zorunlu soru (required) kontrolleri yapılabilir
+    if (!validateCurrentPage()) {
+      setValidationError("Lütfen devam etmeden önce tüm zorunlu (*) soruları yanıtlayınız.");
+      return;
+    }
+
+    setValidationError("");
+
     if (currentPage < pages.length - 1) {
       setCurrentPage(prev => prev + 1);
+      window.scrollTo(0, 0); // Yeni sayfaya geçerken yukarı kaydır
     } else {
       handleSubmit();
     }
   };
 
   const handleSubmit = async () => {
+     if (!validateCurrentPage()) {
+      setValidationError("Lütfen göndermeden önce tüm zorunlu (*) soruları yanıtlayınız.");
+      return;
+    }
+
     setIsSubmitting(true);
     const sessionId = crypto.randomUUID();
 
@@ -132,7 +161,6 @@ export default function SurveyEngine() {
     <div className="min-h-screen bg-gray-100 py-10 px-4">
       <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-md overflow-hidden flex flex-col">
         
-        {/* İlerleme Çubuğu */}
         <div className="h-1 bg-gray-200">
           <div className="h-full bg-indigo-600 transition-all duration-300" style={{ width: `${((currentPage + 1) / pages.length) * 100}%` }}></div>
         </div>
@@ -146,18 +174,21 @@ export default function SurveyEngine() {
             <div key={el.name} className="border-b border-gray-100 pb-8 last:border-0 last:pb-0">
               
               {el.type === 'vignette' ? (
-                <div className="bg-blue-50 border-l-4 border-blue-500 p-5 rounded-r-lg text-gray-800 leading-relaxed text-justify text-sm md:text-base shadow-sm">
+                // RENK DÜZELTMESİ: text-gray-900 (Koyu Siyah)
+                <div className="bg-blue-50 border-l-4 border-blue-500 p-5 rounded-r-lg text-gray-900 leading-relaxed text-justify text-sm md:text-base shadow-sm">
                   {assignedVariations[el.name]}
                 </div>
               ) : (
-                <h3 className="text-base md:text-lg font-medium text-gray-800 mb-5 leading-snug">
+                 // RENK DÜZELTMESİ: text-gray-900
+                <h3 className="text-base md:text-lg font-medium text-gray-900 mb-5 leading-snug">
                   {el.title} {el.required && <span className="text-red-500 font-bold ml-1">*</span>}
                 </h3>
               )}
 
               {el.type === 'text' && (
                 <textarea 
-                  className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 outline-none transition text-sm"
+                  // RENK DÜZELTMESİ: text-gray-900
+                  className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 outline-none transition text-base text-gray-900"
                   rows={3}
                   value={answers[el.name] || ""}
                   onChange={(e) => handleAnswerChange(el.name, e.target.value)}
@@ -168,14 +199,14 @@ export default function SurveyEngine() {
               {el.type === 'slider' && (
                 <div className="flex flex-col gap-4 px-2">
                   <div className="flex items-center gap-4">
-                    <span className="text-gray-400 font-bold text-sm">0</span>
+                    <span className="text-gray-600 font-bold text-sm">0</span>
                     <input 
                       type="range" min="0" max="100" 
                       className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
                       value={answers[el.name] || 0}
                       onChange={(e) => handleAnswerChange(el.name, parseInt(e.target.value))}
                     />
-                    <span className="text-gray-400 font-bold text-sm">100</span>
+                    <span className="text-gray-600 font-bold text-sm">100</span>
                   </div>
                   <div className="text-center font-black text-indigo-600 text-2xl">{answers[el.name] || 0}</div>
                 </div>
@@ -195,7 +226,8 @@ export default function SurveyEngine() {
                           handleAnswerChange(el.name, newArr);
                         }}
                       />
-                      <span className="text-gray-700 text-sm font-medium">{choice}</span>
+                      {/* RENK DÜZELTMESİ: text-gray-900 */}
+                      <span className="text-gray-900 text-base font-medium">{choice}</span>
                     </label>
                   ))}
                 </div>
@@ -205,7 +237,13 @@ export default function SurveyEngine() {
           ))}
         </div>
 
-        {/* ALT BUTON ALANI (PAGINATION) */}
+        {/* YENİ: Hata Mesajı Gösterimi */}
+        {validationError && (
+            <div className="px-6 py-3 bg-red-50 text-red-600 text-sm font-semibold text-center border-t border-red-100">
+                {validationError}
+            </div>
+        )}
+
         <div className="p-6 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
           <div>
             <span className="text-sm text-gray-500 font-medium">Sayfa {currentPage + 1} / {pages.length}</span>
