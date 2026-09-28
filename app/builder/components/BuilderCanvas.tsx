@@ -18,6 +18,7 @@ export default function BuilderCanvas() {
   const [edges, setEdges] = useState<Edge[]>([]);
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [surveyTitle, setSurveyTitle] = useState(`Araştırma Anketi - ${new Date().toLocaleDateString('tr-TR')}`);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
 
   useEffect(() => {
@@ -105,8 +106,8 @@ export default function BuilderCanvas() {
       currentNodeId = nextNode.id; 
     }
 
-    const finalJSON = { title: "Anket Tasarımcısı", elements: elements };
-    const { error } = await supabase.from('surveys').insert([{ title: finalJSON.title, survey_payload: finalJSON }]);
+    const finalJSON = { title: surveyTitle, elements: elements };
+    const { error } = await supabase.from('surveys').insert([{ title: surveyTitle, survey_payload: finalJSON }]);
     setIsSaving(false);
     
     if (error) alert("Hata: " + error.message);
@@ -118,7 +119,12 @@ export default function BuilderCanvas() {
       <Sidebar />
       <div className="flex-1 h-full flex flex-col relative" ref={reactFlowWrapper}>
          <div className="h-16 bg-white border-b border-gray-200 flex items-center px-6 justify-between shadow-sm z-10 w-full">
-            <h1 className="text-xl font-bold text-gray-800">Anket Tasarımcısı</h1>
+            <input 
+  type="text" 
+  value={surveyTitle}
+  onChange={(e) => setSurveyTitle(e.target.value)}
+  className="text-xl font-bold text-gray-800 bg-transparent border-b-2 border-transparent hover:border-gray-300 focus:border-indigo-500 focus:outline-none px-2 py-1 transition-colors w-1/2"
+/>
             <button onClick={saveSurveyToDatabase} disabled={isSaving} className={`px-4 py-2 text-white rounded-md font-medium transition ${isSaving ? 'bg-indigo-400' : 'bg-indigo-600 hover:bg-indigo-700'}`}>
               {isSaving ? 'Kaydediliyor...' : 'Yayınla'}
             </button>
