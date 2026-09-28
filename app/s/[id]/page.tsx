@@ -18,7 +18,7 @@ export default function SurveyEngine() {
   const [reactionTimes, setReactionTimes] = useState<Record<string, number>>({});
   
   const [currentPage, setCurrentPage] = useState(0);
-  const [pages, setPages] = useState<any[][]>([]);
+  const [pages, setPages] = useState<{ id: string, elements: any[] }[]>([]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -80,20 +80,23 @@ export default function SurveyEngine() {
 
       setAssignedVariations(variationsObj);
 
-      // SAYFALANDIRMA (PAGINATION) MANTIĞINI ARTIK expandedElements ÜZERİNDEN YAPIYORUZ
-      const groupedPages: any[][] = [];
+      // SAYFALANDIRMA (PAGINATION) MANTIĞI
+      const groupedPages: { id: string, elements: any[] }[] = [];
       let currentGroup: any[] = [];
+      let currentPageId = 'start_page';
 
       expandedElements.forEach((el: any) => {
         if (el.type === 'page_break') {
-          if (currentGroup.length > 0) groupedPages.push([...currentGroup]);
+          if (currentGroup.length > 0) {
+            groupedPages.push({ id: currentPageId, elements: [...currentGroup] });
+          }
           currentGroup = [];
+          currentPageId = el.id; // Sonraki sayfanın ID'si bu page_break'in ID'si olacak
         } else {
           currentGroup.push(el);
         }
       });
-      if (currentGroup.length > 0) groupedPages.push(currentGroup);
-
+      if (currentGroup.length > 0) groupedPages.push({ id: currentPageId, elements: currentGroup });
       setPages(groupedPages);
       startTimeRef.current = performance.now();
       setLoading(false);
@@ -115,7 +118,8 @@ export default function SurveyEngine() {
 
   // ZORUNLU SORU KONTROLÜ
   const validateCurrentPage = () => {
-    const currentElements = pages[currentPage] || [];
+    // YENİ: Artık pages[currentPage].elements kullanıyoruz
+    const currentElements = pages[currentPage]?.elements || [];
     for (const el of currentElements) {
       if (el.required) {
         const ans = answers[el.id];
@@ -123,7 +127,6 @@ export default function SurveyEngine() {
         
         if (Array.isArray(ans) && ans.length === 0) isUnanswered = true;
         
-        // Tablo (Grid) sorusu ise her satırın işaretlenmesi zorunludur
         if (['multiple_choice_grid', 'tickbox_grid'].includes(el.type)) {
           const rowCount = el.gridConfig?.rows?.length || 0;
           const ansCount = ans ? Object.keys(ans).length : 0;
@@ -142,11 +145,45 @@ export default function SurveyEngine() {
       return;
     }
     setValidationError("");
-    if (currentPage < pages.length - 1) {
-      setCurrentPage(prev => prev + 1);
-      window.scrollTo(0, 0); 
-    } else {
+
+    // YENİ: KOŞULLU MANTIK (SKIP LOGIC) HESAPLAMASI
+    let targetAction = 'next';
+    const currentElements = pages[currentPage]?.elements || [];
+    
+    for (const el of currentElements) {
+      if (el.logicEnabled && ['multiple_choice', 'dropdown'].includes(el.type)) {
+        const ans = answers[el.id];
+        if (ans && el.logicMap?.[ans]) {
+          targetAction = el.logicMap[ans];
+        }
+      }
+    }
+
+    // YÖNLENDİRME (ROUTING)
+    if (targetAction === 'submit') {
       submitSurvey();
+    } else if (targetAction === 'next') {
+      if (currentPage < pages.length - 1) {
+        setCurrentPage(prev => prev + 1);
+        window.scrollTo(0, 0); 
+      } else {
+        submitSurvey();
+      }
+    } else {
+      // Hedef, tasarımdaki bir sayfa ID'si ise onu bul ve oraya atla
+      const targetIndex = pages.findIndex(p => p.id === targetAction);
+      if (targetIndex !== -1) {
+        setCurrentPage(targetIndex);
+        window.scrollTo(0, 0); 
+      } else {
+        // ID bulunamazsa (veya silinmişse) hata vermemek için normal sırayla devam et
+        if (currentPage < pages.length - 1) {
+          setCurrentPage(prev => prev + 1);
+          window.scrollTo(0, 0); 
+        } else {
+          submitSurvey();
+        }
+      }
     }
   };
 
@@ -155,6 +192,7 @@ export default function SurveyEngine() {
       setValidationError("Lütfen göndermeden önce tüm zorunlu (*) soruları yanıtlayınız.");
       return;
     }
+    //... (submitSurvey içindeki veritabanı kayıt kodlarınız aynen kalacak)
 
     setIsSubmitting(true);
     const finalPayload = {
@@ -189,7 +227,7 @@ export default function SurveyEngine() {
         </div>
         
         <div className="p-6 md:p-10 flex flex-col gap-10 flex-1">
-          {(pages[currentPage] || []).map((el: any) => (
+          {(pages[currentPage]?.elements || []).map((el: any) => (
             <div key={el.id} className="border-b border-gray-100 pb-10 last:border-0 last:pb-0">
               <QuestionRenderer 
                 el={el} 

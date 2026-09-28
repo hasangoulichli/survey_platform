@@ -226,20 +226,50 @@ export default function BuilderCanvas() {
                       {['multiple_choice', 'checkboxes', 'dropdown'].includes(el.type) && (
                         <div className="flex flex-col gap-2">
                           {el.choices?.map((choice: string, cIndex: number) => (
-                            <div key={cIndex} className="flex items-center gap-3">
-                              {el.type === 'multiple_choice' ? <Circle size={20} className="text-gray-300"/> : el.type === 'checkboxes' ? <CheckSquare size={20} className="text-gray-300"/> : <span className="text-gray-400 font-bold w-5">{cIndex + 1}.</span>}
-                              <input 
-                                type="text" value={choice} 
-                                onChange={(e) => {
-                                  const newChoices = [...el.choices];
-                                  newChoices[cIndex] = e.target.value;
-                                  updateElement(el.id, 'choices', newChoices);
-                                }}
-                                className="flex-1 border-b border-transparent hover:border-gray-300 focus:border-indigo-600 outline-none py-1 text-gray-900"
-                                placeholder={`Seçenek ${cIndex + 1}`}
-                              />
-                              {el.choices.length > 1 && (
-                                <button onClick={() => updateElement(el.id, 'choices', el.choices.filter((_:any, i:number) => i !== cIndex))} className="text-gray-400 hover:text-red-500"><Trash2 size={18}/></button>
+                            <div key={cIndex} className="flex flex-col gap-2">
+                              <div className="flex items-center gap-3">
+                                {el.type === 'multiple_choice' ? <Circle size={20} className="text-gray-300"/> : el.type === 'checkboxes' ? <CheckSquare size={20} className="text-gray-300"/> : <span className="text-gray-400 font-bold w-5">{cIndex + 1}.</span>}
+                                <input 
+                                  type="text" value={choice} 
+                                  onChange={(e) => {
+                                    const newChoices = [...el.choices];
+                                    // YENİ: Seçeneğin adı değişirse, mantık haritasındaki (logicMap) adını da eşzamanlı güncelle
+                                    let newLogicMap = { ...(el.logicMap || {}) };
+                                    if (el.logicMap && el.logicMap[choice]) {
+                                      newLogicMap[e.target.value] = el.logicMap[choice];
+                                      delete newLogicMap[choice];
+                                    }
+                                    newChoices[cIndex] = e.target.value;
+                                    setElements(elements.map(eItem => eItem.id === el.id ? { ...eItem, choices: newChoices, logicMap: newLogicMap } : eItem));
+                                  }}
+                                  className="flex-1 border-b border-transparent hover:border-gray-300 focus:border-indigo-600 outline-none py-1 text-gray-900"
+                                  placeholder={`Seçenek ${cIndex + 1}`}
+                                />
+                                {el.choices.length > 1 && (
+                                  <button onClick={() => updateElement(el.id, 'choices', el.choices.filter((_:any, i:number) => i !== cIndex))} className="text-gray-400 hover:text-red-500"><Trash2 size={18}/></button>
+                                )}
+                              </div>
+                              
+                              {/* YENİ: KOŞULLU MANTIK YÖNLENDİRİCİSİ */}
+                              {el.logicEnabled && ['multiple_choice', 'dropdown'].includes(el.type) && (
+                                <div className="ml-8 flex items-center gap-2">
+                                  <span className="text-xs text-gray-500 font-medium">↳ Şunu yap:</span>
+                                  <select 
+                                    value={el.logicMap?.[choice] || 'next'}
+                                    onChange={(e) => {
+                                      const newLogicMap = { ...(el.logicMap || {}) };
+                                      newLogicMap[choice] = e.target.value;
+                                      updateElement(el.id, 'logicMap', newLogicMap);
+                                    }}
+                                    className="text-xs border border-gray-300 rounded p-1.5 text-gray-700 bg-gray-50 outline-none focus:border-indigo-500"
+                                  >
+                                    <option value="next">Sonraki Bölüme Geç</option>
+                                    <option value="submit">Anketi Gönder</option>
+                                    {elements.filter(e => e.type === 'page_break').map((pb, i) => (
+                                      <option key={pb.id} value={pb.id}>Bölüm: {pb.title || `İsimsiz Bölüm ${i+1}`}</option>
+                                    ))}
+                                  </select>
+                                </div>
                               )}
                             </div>
                           ))}
@@ -376,6 +406,15 @@ export default function BuilderCanvas() {
 
                       {/* ALT ÇUBUK: ZORUNLULUK, KOPYALA, SİL */}
                       <div className="flex justify-end items-center gap-4 mt-6 pt-4 border-t border-gray-200">
+                        {/* YENİ: MANTIK AKTİFLEŞTİRME BUTONU */}
+                        {['multiple_choice', 'dropdown'].includes(el.type) && (
+                          <button 
+                            onClick={() => updateElement(el.id, 'logicEnabled', !el.logicEnabled)} 
+                            className={`text-xs font-bold px-3 py-1.5 rounded-md transition ${el.logicEnabled ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                          >
+                            Yanıta Göre Bölüme Git
+                          </button>
+                        )}
                         <button onClick={() => duplicateElement(index)} className="text-gray-500 hover:text-gray-900 transition flex items-center gap-1" title="Kopyala"><Copy size={20}/></button>
                         <button onClick={() => removeElement(el.id)} className="text-gray-500 hover:text-red-500 transition flex items-center gap-1" title="Sil"><Trash2 size={20}/></button>
                         
@@ -442,7 +481,7 @@ export default function BuilderCanvas() {
                           <span>{el.scaleConfig?.maxLabel}</span>
                         </div>
                       )}
-                      
+
                       {/* KAYDIRICI ÖNİZLEME */}
                       {el.type === 'slider' && (
                         <div className="flex items-center gap-4 w-full md:w-3/4">
