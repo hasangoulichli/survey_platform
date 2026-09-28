@@ -86,16 +86,22 @@ export default function SurveyEngine() {
   const handleSubmit = async () => {
     setIsSubmitting(true);
     
-    // Veritabanına gönderilecek süper-paket
+    // Benzersiz bir session_id üret (Zorunlu sütun hatasını engeller)
+    const sessionId = crypto.randomUUID();
+
     const finalPayload = {
       yanitlar: answers,
-      gosterilen_senaryo: assignedVariations, // Sistem kime hangi senaryoyu gösterdi?
-      reaksiyon_sureleri_ms: reactionTimes,    // Hangi soruya kaç milisaniyede cevap verdi?
+      gosterilen_senaryo: assignedVariations,
+      reaksiyon_sureleri_ms: reactionTimes,    
       toplam_sure_ms: Math.round(performance.now() - startTimeRef.current)
     };
 
     const { error } = await supabase.from("responses").insert([
-      { survey_id: id, answer_payload: finalPayload }
+      { 
+        survey_id: id, 
+        session_id: sessionId, // YENİ: Zorunlu alanı doldurduk
+        answer_payload: finalPayload 
+      }
     ]);
 
     setIsSubmitting(false);
