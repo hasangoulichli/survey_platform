@@ -94,17 +94,118 @@ export default function DashboardPage() {
     navigator.clipboard.writeText(url);
     alert("Katılımcı linki panoya kopyalandı:\n" + url);
   };
-  const downloadCSV = async (surveyId: string) => {
+const downloadCSV = async (surveyId: string) => {
     try {
-      // 1. API'den ham CSV metnini çekiyoruz
-      const response = await fetch(`https://survey-api-kyse.onrender.com/export/csv/${surveyId}`);
-      if (!response.ok) throw new Error("Veri çekilemedi");
-      const csvContent = await response.text();
+      // 1. Veritabanından Anketin Yapısını (Soruları) Çek
+      const { data: surveyData } = await supabase.from('surveys').select('survey_payload').eq('id', surveyId).single();
+      if (!surveyData) throw new Error("Anket yapısı bulunamadı.");
+      const elements = surveyData.survey_payload.elements || [];
 
-      // 2. EXCEL İÇİN SİHİRLİ DOKUNUŞ: \uFEFF (BOM) ekleyerek dosyayı oluşturuyoruz
+      // 2. Veritabanından Yanıtları Çek
+      const { data: responses } = await supabase.from('responses').select('*').eq('survey_id', surveyId);
+      if (!responses || responses.length === 0) {
+        alert("Henüz bu ankete verilmiş bir yanıt bulunmuyor.");
+        return;
+      }
+
+      // 3. SÜTUN BAŞLIKLARINI HAZIRLA (ID'leri Gerçek Sorulara Çevir)
+      let headers = ["Katılımcı Kimliği (Session ID)", "Yanıt Tarihi", "Toplam Süre (Saniye)"];
+      let questionMap: any = {}; 
+
+      elements.forEach((el: any) => {
+        if (['page_break', 'info_block'].includes(el.type)) return; 
+        
+        // HTML etiketlerini (bold, italik vb.) temizle
+        let cleanTitle = el.title ? el.title.replace(/<[^>]+>/g, '').trim() : "İsimsiz Soru";
+        
+        if (el.type === 'vignette' || el.type === 'vignette_text') {
+          headers.push(`[Senaryo] ${cleanTitle}`);
+          questionMap[el.id] = { type: 'vignette', title: `[Senaryo] ${cleanTitle}` };
+        } 
+        else if (['multiple_choice_grid', 'tickbox_grid'].includes(el.type)) {
+          el.gridConfig?.rows?.forEach((row: string) => {
+            let rowClean = row.replace(/<[^>]+>/g, '').trim();
+            headers.push(`${cleanTitle} [${rowClean}]`);
+          });
+          questionMap[el.id] = { type: 'grid', title: cleanTitle, rows: el.gridConfig?.rows || [] };
+        } 
+        else {
+          headers.push(cleanTitle);
+          questionMap[el.id] = { type: 'normal', title: cleanTitle };
+        }
+      });
+
+      // İsteğe Bağlı: Her sorunun reaksiyon süresini de sona ekle
+      elements.forEach((el: any) => {
+         if (['page_break', 'info_block', 'vignette', 'vignette_text'].includes(el.type)) return;
+         let cleanTitle = el.title ? el.title.replace(/<[^>]+>/g, '').trim() : "İsimsiz Soru";
+         headers.push(`[Süre Sn] ${cleanTitle}`);
+      });
+
+      // 4. CSV SATIRLARINI DOLDUR
+      const escapeCSV = (val: any) => {
+        if (val === null || val === undefined) return '""';
+        let str = String(val);
+        // HTML kalıntılarını temizle
+        str = str.replace(/<[^>]+>/g, '').trim();
+        if (str.includes('"') || str.includes(',') || str.includes('\n')) {
+          str = `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      };
+
+      let csvRows = [];
+      csvRows.push(headers.map(escapeCSV).join(","));
+
+      responses.forEach(res => {
+        const payload = res.answer_payload || {};
+        const answers = payload.yanitlar || {};
+        const variations = payload.gosterilen_senaryo || {};
+        const rts = payload.reaksiyon_sureleri_ms || {};
+        
+        let row = [
+          res.session_id,
+          new Date(res.created_at).toLocaleString('tr-TR'),
+          ((payload.toplam_sure_ms || 0) / 1000).toFixed(1)
+        ];
+
+        // Yanıtları eşleştir
+        elements.forEach((el: any) => {
+          if (['page_break', 'info_block'].includes(el.type)) return;
+          const qMap = questionMap[el.id];
+          if (!qMap) return;
+
+          if (qMap.type === 'vignette') {
+            row.push(variations[el.id] || "Gösterilmedi");
+          } 
+          else if (qMap.type === 'grid') {
+            const gridAns = answers[el.id] || {};
+            qMap.rows.forEach((r: string) => {
+              let cellAns = gridAns[r];
+              if (Array.isArray(cellAns)) cellAns = cellAns.join(" | ");
+              row.push(cellAns !== undefined ? cellAns : "Cevaplanmadı");
+            });
+          } 
+          else {
+            let ans = answers[el.id];
+            if (Array.isArray(ans)) ans = ans.join(" | ");
+            row.push(ans !== undefined ? ans : "Cevaplanmadı");
+          }
+        });
+
+        // Reaksiyon sürelerini eşleştir
+        elements.forEach((el: any) => {
+           if (['page_break', 'info_block', 'vignette', 'vignette_text'].includes(el.type)) return;
+           let timeMs = rts[el.id];
+           row.push(timeMs !== undefined ? (timeMs / 1000).toFixed(1) : "");
+        });
+
+        csvRows.push(row.map(escapeCSV).join(","));
+      });
+
+      // 5. EXCEL BOM (\uFEFF) VE İNDİRME İŞLEMİ
+      const csvContent = csvRows.join("\n");
       const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
-      
-      // 3. Dosyayı bilgisayara otomatik indirtiyoruz
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
@@ -113,8 +214,9 @@ export default function DashboardPage() {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-    } catch (error) {
-      alert("CSV indirilirken bir hata oluştu. Sunucu uyanıyor olabilir, lütfen biraz bekleyip tekrar deneyin.");
+
+    } catch (error: any) {
+      alert("CSV oluşturulurken hata: " + error.message);
     }
   };
 
@@ -214,7 +316,6 @@ export default function DashboardPage() {
                       </Link>
                       
                       <button onClick={() => downloadCSV(survey.id)} className="flex items-center justify-center gap-2 flex-1 py-2.5 border border-green-200 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg text-sm font-medium transition">
-                        <Download size={18} /> CSV
                       </button>
                     </div>
                   </div>
