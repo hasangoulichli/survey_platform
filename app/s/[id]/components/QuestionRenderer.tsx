@@ -1,14 +1,18 @@
 import React from 'react';
-import { Star, Upload } from 'lucide-react';
+import { Star, Upload, BookOpen } from 'lucide-react';
 
 export default function QuestionRenderer({ el, answer, onChange, assignedVariation }: any) {
   const type = el.type;
 
-  // 1. VİNYET / SENARYO
-  if (type === 'vignette') {
+  // 1. VİNYET / SENARYO METNİ (Sorun Buradaydı, vignette_text eklendi)
+  if (type === 'vignette' || type === 'vignette_text') {
     return (
-      <div className="bg-blue-50 border-l-4 border-blue-500 p-5 rounded-r-lg text-gray-900 leading-relaxed text-justify text-base shadow-sm">
-        {assignedVariation}
+      <div className="bg-blue-50 border-l-4 border-blue-500 p-6 rounded-r-xl text-gray-900 leading-relaxed text-justify text-base shadow-sm">
+        <div className="flex items-center gap-2 mb-3 text-blue-700 font-bold text-sm">
+           <BookOpen size={18} /> Araştırma Senaryosu
+        </div>
+        {/* el.text yeni sistemden, assignedVariation eski sistemden gelir */}
+        {el.text || assignedVariation || <span className="text-gray-400 italic">Senaryo metni bulunamadı...</span>}
       </div>
     );
   }
@@ -75,7 +79,7 @@ export default function QuestionRenderer({ el, answer, onChange, assignedVariati
       {/* 6. TABLOLAR (Grid) */}
       {(type === 'multiple_choice_grid' || type === 'tickbox_grid') && (
         <div className="overflow-x-auto w-full border border-gray-200 rounded-lg">
-          <table className="w-full text-left border-collapse min-w-150px bg-white">
+          <table className="w-full text-left border-collapse min-w-150 bg-white">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="p-3"></th>
@@ -117,7 +121,7 @@ export default function QuestionRenderer({ el, answer, onChange, assignedVariati
         </div>
       )}
 
-      {/* 8. DOSYA YÜKLEME (Görsel Simülasyon) */}
+      {/* 8. DOSYA YÜKLEME */}
       {type === 'file_upload' && (
         <label className="border-2 border-dashed border-gray-300 rounded-xl p-8 flex flex-col items-center gap-3 cursor-pointer hover:bg-indigo-50 hover:border-indigo-400 transition bg-white w-full md:w-1/2">
           <Upload size={32} className="text-indigo-500"/>
