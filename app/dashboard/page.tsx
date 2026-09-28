@@ -220,6 +220,34 @@ const downloadCSV = async (surveyId: string) => {
     }
   };
 
+  // 5. ANKETİ ÇOĞALTMA (DUPLICATE) İŞLEVİ
+  const handleDuplicate = async (id: string) => {
+    try {
+      // 1. Kopyalanacak anketi bul
+      const { data: original, error } = await supabase.from('surveys').select('*').eq('id', id).single();
+      if (error || !original) throw new Error("Anket bulunamadı.");
+
+      // 2. Başlığı güncelle
+      const newTitle = `${original.title} (Kopya)`;
+      const newPayload = { ...original.survey_payload, title: newTitle };
+
+      // 3. Yeni anket olarak kaydet (Varsayılan olarak inaktif başlasın)
+      const { data: newSurvey, error: insertError } = await supabase
+        .from('surveys')
+        .insert([{ title: newTitle, survey_payload: newPayload, is_active: false }])
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+
+      // 4. Arayüzdeki listeye ekle (En başa)
+      setSurveys([{ ...newSurvey, response_count: 0 }, ...surveys]);
+      
+    } catch (error: any) {
+      alert("Anket kopyalanırken hata oluştu: " + error.message);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 p-4 md:p-10">
       <div className="max-w-7xl mx-auto">
@@ -297,10 +325,18 @@ const downloadCSV = async (surveyId: string) => {
                     <span className="bg-indigo-50 text-indigo-700 py-1 px-3 rounded-full text-sm font-bold">
                       {survey.response_count} Yanıt
                     </span>
-                    {/* DÜZENLE BUTONU */}
-                    <button onClick={() => alert("Anket düzenleme modülü (Builder-Edit) yakında eklenecektir.")} className="text-gray-500 hover:text-indigo-600 flex items-center gap-1 text-sm font-medium">
-                      <Edit size={16}/> Düzenle
-                    </button>
+                    
+                    <div className="flex items-center gap-4">
+                      {/* ÇOĞALT BUTONU */}
+                      <button onClick={() => handleDuplicate(survey.id)} className="text-gray-500 hover:text-blue-600 flex items-center gap-1 text-sm font-medium transition" title="Bu anketin kopyasını oluştur">
+                        <Copy size={16}/> Çoğalt
+                      </button>
+                      
+                      {/* DÜZENLE BUTONU (Link olarak güncellendi) */}
+                      <Link href={`/builder?id=${survey.id}`} className="text-gray-500 hover:text-indigo-600 flex items-center gap-1 text-sm font-medium transition" title="Anketi Düzenle">
+                        <Edit size={16}/> Düzenle
+                      </Link>
+                    </div>
                   </div>
                   
                   <div className="flex flex-col gap-2">
