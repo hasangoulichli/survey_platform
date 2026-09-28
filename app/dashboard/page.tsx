@@ -94,6 +94,29 @@ export default function DashboardPage() {
     navigator.clipboard.writeText(url);
     alert("Katılımcı linki panoya kopyalandı:\n" + url);
   };
+  const downloadCSV = async (surveyId: string) => {
+    try {
+      // 1. API'den ham CSV metnini çekiyoruz
+      const response = await fetch(`https://survey-api-kyse.onrender.com/export/csv/${surveyId}`);
+      if (!response.ok) throw new Error("Veri çekilemedi");
+      const csvContent = await response.text();
+
+      // 2. EXCEL İÇİN SİHİRLİ DOKUNUŞ: \uFEFF (BOM) ekleyerek dosyayı oluşturuyoruz
+      const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+      
+      // 3. Dosyayı bilgisayara otomatik indirtiyoruz
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `arastirma_verileri_${surveyId}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      alert("CSV indirilirken bir hata oluştu. Sunucu uyanıyor olabilir, lütfen biraz bekleyip tekrar deneyin.");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 p-4 md:p-10">
@@ -190,7 +213,7 @@ export default function DashboardPage() {
                         </button>
                       </Link>
                       
-                      <button onClick={() => window.open(`https://survey-api-kyse.onrender.com/export/csv/${survey.id}`, '_blank')} className="flex items-center justify-center gap-2 flex-1 py-2.5 border border-green-200 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg text-sm font-medium transition">
+                      <button onClick={() => downloadCSV(survey.id)} className="flex items-center justify-center gap-2 flex-1 py-2.5 border border-green-200 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg text-sm font-medium transition">
                         <Download size={18} /> CSV
                       </button>
                     </div>
