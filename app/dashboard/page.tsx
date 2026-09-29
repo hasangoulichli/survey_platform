@@ -99,7 +99,29 @@ const downloadCSV = async (surveyId: string) => {
       // 1. Veritabanından Anketin Yapısını (Soruları) Çek
       const { data: surveyData } = await supabase.from('surveys').select('survey_payload').eq('id', surveyId).single();
       if (!surveyData) throw new Error("Anket yapısı bulunamadı.");
-      const elements = surveyData.survey_payload.elements || [];
+      
+      const baseElements = surveyData.survey_payload.elements || [];
+      
+      // YENİ: Vinyet içindeki alt soruları da ana CSV listesine (sütunlara) dahil et
+      let elements: any[] = [];
+      baseElements.forEach((el: any) => {
+        elements.push(el); // Ana soruyu veya Vinyet metnini ekle
+        
+        // Eğer bu bir vinyet ise, içindeki manipülasyon sorularını dışarı çıkar
+        if (el.type === 'vignette' && Array.isArray(el.variations)) {
+          el.variations.forEach((v: any, vIndex: number) => {
+            if (v.questions && Array.isArray(v.questions)) {
+              v.questions.forEach((q: any) => {
+                elements.push({
+                  id: `${el.id}_vq_${q.id}`, // Anket motorunun kaydettiği özel ID
+                  type: 'multiple_choice', // Standart soru gibi davran
+                  title: `[Var.${vIndex + 1} Kontrol] ${q.title}` // Hangi varyasyonun sorusu olduğu belli olsun
+                });
+              });
+            }
+          });
+        }
+      });
 
       // 2. Veritabanından Yanıtları Çek
       const { data: responses } = await supabase.from('responses').select('*').eq('survey_id', surveyId);
