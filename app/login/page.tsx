@@ -39,7 +39,7 @@ export default function LoginPage() {
             <Lock size={32} />
           </div>
         </div>
-        <h2 className="text-2xl font-bold text-center text-gray-900 mb-2">KAPSA Platformu</h2>
+        <h2 className="text-2xl font-bold text-center text-gray-900 mb-2">ANKET Platformu</h2>
         <p className="text-center text-gray-500 mb-8">Araştırmacı paneline erişmek için giriş yapın.</p>
         
         {error && <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg font-medium">{error}</div>}
